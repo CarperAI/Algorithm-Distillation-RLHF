@@ -3,6 +3,7 @@ from datasets import load_dataset
 from transformers import pipeline
 import os
 import yaml
+from functools import partial
 
 import trlx
 import torch
@@ -11,9 +12,10 @@ from trlx.data.configs import TRLConfig
 
 from trlx.utils.loading import get_model, get_orchestrator, get_pipeline
 
-def get_positive_score(scores):
+def get_score_for_label(label, scores):
     "Extract value associated with a positive sentiment from pipeline's output"
-    return dict(map(lambda x: tuple(x.values()), scores))["POSITIVE"]
+    label_to_score = {d['label'] : d['score'] for d in scores}
+    return label_to_score[label]
 
 default_config = yaml.safe_load(open(os.path.join(dirname(__file__), "ppo_config.yml")))
 
@@ -28,15 +30,16 @@ def main(hparams={}):
 
     sentiment_fn = pipeline(
         "sentiment-analysis",
-        "lvwerra/distilbert-imdb",
-        top_k=2,
+        "bhadresh-savani/distilbert-base-uncased-emotion",
         truncation=True,
         batch_size=256,
         device=device,
+        return_all_scores=True,
     )
 
     def reward_fn(samples: List[str]) -> List[float]:
-        sentiments = list(map(get_positive_score, sentiment_fn(samples)))
+        output_batch = sentiment_fn(samples)
+        sentiments = list(map(partial(get_score_for_label, 'joy'), output_batch))
         return sentiments
 
     # Take few words off of movies reviews as prompts
