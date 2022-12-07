@@ -1,0 +1,40 @@
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = "D10"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-rA"
+testpaths = ["tests"]
+
+[project]
+name = "algorithm-distillation"
+description = ""
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+dynamic = ["version", "dependencies"]
+
+
+[project.optional-dependencies]
+test = [
+    "black",
+    "isort",
+    "flake8",
+    "pydocstyle",
+    "pytype",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+]
+notebook = ["ipython"]
