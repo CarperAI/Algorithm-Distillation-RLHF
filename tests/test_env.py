@@ -26,10 +26,11 @@ def test_gym_task():
         assert sample[2].shape == (10, 1)  # Rewards.
 
     # More than buffer
-    sample = task.sample_history(1000, skip=0, most_recent=True)
-    assert sample[0].shape == (100, 16)  # Observations are discrete classes
-    assert sample[1].shape == (100, 1)  # Actions are discrete classes
-    assert sample[2].shape == (100, 1)  # Rewards.
+    try:
+        sample = task.sample_history(1000, skip=0, most_recent=True)
+        assert False, "Error should have been raised."
+    except AssertionError:
+        assert True
 
     """# Please install gym[atari, accept-rom-license] manually if you want to run Atari.
     env = gym.make('Alien-v4')

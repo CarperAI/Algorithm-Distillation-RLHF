@@ -177,37 +177,12 @@ class GymTask(Task):
         """
         pos = buffer.pos
         total_length = length * (skip + 1)
-        if pos >= total_length:
-            return (
-                self._obs_post_process(
-                    buffer.observations[pos - total_length : pos : skip + 1]
-                ),
-                self._act_post_process(
-                    buffer.actions[pos - total_length : pos : skip + 1]
-                ),
-                self._rew_post_process(
-                    buffer.rewards[pos - total_length : pos : skip + 1]
-                ),
-            )
-        else:
-            latest = (
-                self._obs_post_process(buffer.observations[: pos : skip + 1]),
-                self._act_post_process(buffer.actions[: pos : skip + 1]),
-                self._rew_post_process(buffer.rewards[: pos : skip + 1]),
-            )
-            if buffer.full:
-                extra = (
-                    self._obs_post_process(
-                        buffer.observations[pos - length :: skip + 1]
-                    ),
-                    self._act_post_process(buffer.actions[pos - length :: skip + 1]),
-                    self._rew_post_process(buffer.rewards[pos - length :: skip + 1]),
-                )
-                latest = tuple(
-                    [np.concatenate([extra[i], latest[i]], axis=0) for i in range(3)]
-                )
+        assert buffer.buffer_size > total_length, "Replay buffer size must be larger than the sequence length."
 
-            return latest
+        start = (pos - total_length + buffer.buffer_size) % buffer.buffer_size
+        end = pos
+
+        return self._get_obs_act_rew(buffer, start, end, skip)
 
     def _randomly_sample_buffer(
         self, buffer: ReplayBuffer, length: int, skip: int
@@ -220,21 +195,51 @@ class GymTask(Task):
         :param skip: the amount to skip between states.
         :return: an (observations, actions, rewards) tuple.
         """
-        upper_bound = buffer.size if buffer.full else buffer.pos
         total_length = length * (skip + 1)
+        assert buffer.buffer_size > total_length, "Replay buffer size must be larger than the sequence length."
 
-        if total_length > upper_bound:
-            raise IndexError("Buffer contains fewer samples than necessary.")
+        if not buffer.full:
+            start = random.randint(0, buffer.pos - total_length)
+            end = start + total_length
+        else:
+            start = random.randint(0, buffer.buffer_size)
+            end = (start + total_length) % buffer.buffer_size
 
-        start = random.randint(0, upper_bound - total_length)
+        return self._get_obs_act_rew(buffer, start, end, skip)
+
+    @staticmethod
+    def _get_range(array: np.ndarray, start: int, end: int, interval: int) -> np.ndarray:
+        """
+        A helper function to either slice array[start:end:interval] or combine array[start::interval] and
+        array[:end:interval] depending on whether start < end.
+        :param array: the sliced array.
+        :param start: the starting index.
+        :param end: the ending index (exclusive).
+        :param interval: the interval.
+        :return: the sliced sub-array.
+        """
+        if start < end:
+            return array[start:end:interval]
+        else:
+            return np.concatenate([array[start::interval], array[:end:interval]], axis=0)
+
+    def _get_obs_act_rew(self, buffer: ReplayBuffer, start: int, end: int, skip: int):
+        """
+        Return a tuple (obs, act, rew) sampled according to the buffer and the parameters.
+        :param buffer: the replay buffer.
+        :param start: the starting index.
+        :param end: the ending index.
+        :param skip: the amount of states to skip.
+        :return: the tuple (obs, act, rew)
+        """
         return (
             self._obs_post_process(
-                buffer.observations[start : start + total_length : skip + 1]
+                self._get_range(buffer.observations, start, end, skip + 1)
             ),
             self._act_post_process(
-                buffer.actions[start : start + total_length : skip + 1]
+                self._get_range(buffer.actions, start, end, skip + 1)
             ),
             self._rew_post_process(
-                buffer.rewards[start : start + total_length : skip + 1]
+                self._get_range(buffer.rewards, start, end, skip + 1)
             ),
         )
