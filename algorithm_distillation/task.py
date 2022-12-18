@@ -96,7 +96,7 @@ class GymTask(Task):
         (note: length of training steps instead of length of sequence! Every step
         includes obs, act, rew. Thus, the final sequence is 3x as long.)
         :param skip: (Optional) skip certain amount of steps between two states
-        :param most_recent: (Optional) sample from the most recent histories. False to sample randomly.
+        :param most_recent: (Optional) get the most recent histories. False to sample randomly.
         :return: a tuple of (observations, actions, rewards). Each is a tensor.
         """
         if self.algorithm in self._on_policy:
