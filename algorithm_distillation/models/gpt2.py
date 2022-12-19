@@ -110,9 +110,9 @@ class GPT2AD(ADTransformer):
         But other cases are allowed, e.g.,
         `..., latest_obs, latest_act, None` -> `next_reward`
 
-        :param obs: (b, t, obs_dim)
-        :param actions: (b, t, act_dim)
-        :param rewards: (b, t, 1)
+        :param obs: (b, t, obs_dim) or None if b==0
+        :param actions: (b, t, act_dim) or None if b==0
+        :param rewards: (b, t, 1) or None if b==0
         :param current_obs: (Optional) (b, obs_dim)
         :param current_action: (Optional) shape (b, act_dim)
         :param current_reward: (Optional) shape (b, 1)
@@ -122,9 +122,14 @@ class GPT2AD(ADTransformer):
         :param action_only: (Optional) return predicted actions only.
         :return: predicted action logits (if action_only) or predicted action logits, rewards, and obs.
         """
-        device = obs.device
+        if obs is None:
+            assert current_obs is not None, "Empty input."
+            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            batch_size, timestep = current_obs.shape[0], 0
+        else:
+            device = obs.device
+            batch_size, timestep, _ = obs.shape
 
-        batch_size, timestep, _ = obs.shape
         if current_step_id is None:
             if step_ids is not None:
                 logger.warning(
@@ -132,22 +137,21 @@ class GPT2AD(ADTransformer):
                 )
             current_step_id = timestep
 
-        if attention_mask is None:
-            attention_mask = torch.ones(
-                (batch_size, timestep), dtype=torch.float, device=device
-            )
-
-        if step_ids is None:
+        if step_ids is None and timestep > 0:
             step_ids = torch.arange(0, timestep, dtype=torch.long, device=device).view(
                 1, timestep
-            )
-        embedded_steps = self.step_embedding(step_ids).view(
-            1, timestep, self.hidden_size
-        )
+            ).repeat((batch_size, 1))
 
-        embedded_obs = self.obs_embedding(obs) + embedded_steps
-        embedded_act = self.act_embedding(actions) + embedded_steps
-        embedded_rew = self.rew_embedding(rewards) + embedded_steps
+        if timestep == 0:
+            embedded_obs, embedded_act, embedded_rew = None, None, None
+        else:
+            embedded_steps = self.step_embedding(step_ids).view(
+                batch_size, timestep, self.hidden_size
+            )
+            embedded_obs = self.obs_embedding(obs) + embedded_steps
+            embedded_act = self.act_embedding(actions) + embedded_steps
+            embedded_rew = self.rew_embedding(rewards) + embedded_steps
+
         embedded_latest_step = self.step_embedding(
             torch.tensor([current_step_id], dtype=torch.long, device=device)
         )
@@ -168,16 +172,24 @@ class GPT2AD(ADTransformer):
         # Note: only affects axis 1. Axis 0 (batch) and axis 2 (embedding) are preserved.
         input_seq = stack_seq(embedded_obs, embedded_act, embedded_rew, extra)
         input_seq = self.layer_norm_in_embedding(input_seq)
-        attention_mask = (
-            attention_mask.unsqueeze(-1).repeat((1, 1, 3)).view(batch_size, -1)
-        )
-        attention_mask = torch.concat(
-            [
-                attention_mask,
-                torch.ones((batch_size, num_extra), dtype=torch.float, device=device),
-            ],
-            dim=1,
-        )
+
+        if timestep == 0:
+            attention_mask = torch.ones((batch_size, num_extra), dtype=torch.float, device=device)
+        else:
+            if attention_mask is None:
+                attention_mask = torch.ones(
+                    (batch_size, timestep), dtype=torch.float, device=device
+                )
+            attention_mask = (
+                attention_mask.unsqueeze(-1).repeat((1, 1, 3)).view(batch_size, -1)
+            )
+            attention_mask = torch.concat(
+                [
+                    attention_mask,
+                    torch.ones((batch_size, num_extra), dtype=torch.float, device=device),
+                ],
+                dim=1,
+            )
 
         # Do inference using the underlying transformer.
         output = self.transformers(

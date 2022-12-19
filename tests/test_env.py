@@ -33,12 +33,12 @@ def test_gym_task():
         assert True
 
     """# Please install gym[atari, accept-rom-license] manually if you want to run Atari.
-    env = gym.make('Alien-v4')
+    _env = gym.make('Alien-v4')
     config = {'learning_starts': 10,
               'buffer_size': 1000,
               'policy': 'MlpPolicy'
               }
-    task = GymTask(env, 'DQN', config)
+    task = GymTask(_env, 'DQN', config)
     task.train(100)
     """
 

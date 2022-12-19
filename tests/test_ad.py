@@ -30,3 +30,6 @@ def test_ad():
 
     ad = GymAD(model)
     ad.train(task_manager, 100, 10, skip=0, batch_size=8)
+
+    obs, act, rew = ad.rollout(task, 16, 0)
+    print(obs, act, rew)

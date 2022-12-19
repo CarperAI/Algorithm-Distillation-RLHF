@@ -30,3 +30,7 @@ def test_stack_seq():
 
     result = stack_seq(obs, act, rew, extra)
     assert torch.all(result.isclose(r))
+
+    # when batch size is 0, all of obs, act, rew should be None. It should just return the extra.
+    result = stack_seq(None, None, None, extra)
+    assert torch.all(result.isclose(extra))

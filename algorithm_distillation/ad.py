@@ -1,8 +1,10 @@
 import abc
 
+import numpy as np
 import torch
 
 from algorithm_distillation.models.ad_transformer import ADTransformer
+from .task import Task, GymTask
 
 from .task_manager import TaskManager
 
@@ -25,6 +27,13 @@ class AlgorithmDistillation(abc.ABC):
         batch_size: int,
         **config
     ):
+        pass
+
+    @abc.abstractmethod
+    def rollout(self,
+                task: Task,
+                steps: int,
+                skip: int) -> tuple:
         pass
 
 
@@ -75,9 +84,63 @@ class GymAD(AlgorithmDistillation):
             losses.append(loss.item())
             optimizer.step()
 
-        self.model.eval()  # By default, set to eval mode outside of training.
+        self.model.eval()  # By default, set to eval mode outside training.
 
-        print(losses)
+    def rollout(self, task: GymTask, steps: int, skip: int) -> tuple:
+        """
+        Roll out for `steps` amount of steps (ignore the policy embedded in `task` and only uses its _env).
+
+        :param task: the task to perform rollout on.
+        :param steps: the amount of steps to roll out.
+        :param skip: the amount of steps to skip (normally should be the same as `skip` during training).
+        :return: the full sequences (observations, actions, rewards), each of length `steps`.
+        """
+        device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        self.model.to(device)
+
+        for st in ['obs', 'act']:
+            if getattr(task, f'{st}_dim') != getattr(self.model, f'{st}_dim'):
+                raise ValueError(f"The task must have observation dimension {self.model.obs_dim}")
+        env = task.env
+        observations = torch.zeros((steps, task.obs_dim), device=device, dtype=torch.float)
+
+        # Predicted action logits
+        action_logits = torch.zeros((steps, task.act_dim), device=device, dtype=torch.float)
+        # The actual actions taken (argmax of action_logits)
+        actions = torch.zeros((steps,), device=device, dtype=torch.long)
+        # The actual one-hot encoded actions (nn.one_hot of actions)
+        actions_one_hot = torch.zeros((steps, task.act_dim), device=device, dtype=torch.float)
+
+        rewards = torch.zeros((steps, 1), device=device, dtype=torch.float)
+
+        obs, done = None, True
+        for step in range(steps):
+            if done:
+                obs, done = torch.tensor(task.obs_post_process(np.array([env.reset()])),
+                                         device=device,
+                                         dtype=torch.float), False
+
+            # TODO: can be optimized using cache
+            with torch.inference_mode():
+                action_logits[step] = self.model(
+                    None if step < skip + 1 else observations[None, : step: skip + 1],
+                    None if step < skip + 1 else actions_one_hot[None, : step: skip + 1],
+                    None if step < skip + 1 else rewards[None, : step : skip + 1],
+                    current_obs=obs[None, 0],
+                    action_only=True)[0, step]
+            actions[step] = torch.argmax(action_logits[step]).type(torch.long)
+            actions_one_hot[step] = torch.nn.functional.one_hot(actions[step],
+                                                                num_classes=task.act_dim).type(torch.float)
+
+            observations[step] = obs[None, 0]
+            obs, rew, done, _ = env.step(actions[step].item())
+            obs = torch.tensor(task.obs_post_process(np.array([obs])), device=device, dtype=torch.float)
+            rew = torch.tensor(task.rew_post_process(np.array([rew])), device=device, dtype=torch.float)
+            rewards[step] = rew[0]
+
+        return observations, actions, rewards
 
     @staticmethod
     def _get_data_iter(
@@ -90,13 +153,13 @@ class GymAD(AlgorithmDistillation):
 
             yield (
                 torch.tensor(
-                    [sample[0] for sample in samples], dtype=torch.float, device=device
+                    np.array([sample[0] for sample in samples]), dtype=torch.float, device=device
                 ),  # observations
                 torch.tensor(
-                    [sample[1] for sample in samples], dtype=torch.long, device=device
+                    np.array([sample[1] for sample in samples]), dtype=torch.long, device=device
                 ),  # actions
                 torch.tensor(
-                    [sample[2] for sample in samples], dtype=torch.float, device=device
+                    np.array([sample[2] for sample in samples]), dtype=torch.float, device=device
                 ),  # rewards
             )
 
@@ -109,5 +172,5 @@ class GymAD(AlgorithmDistillation):
         """
         assert y.dtype == torch.long
         assert x.shape[:-1] + (1,) == y.shape
-        x = torch.nn.functional.log_softmax(x)  # (b, length, action_num)
+        x = torch.nn.functional.log_softmax(x, dim=-1)  # (b, length, action_num)
         return -torch.take_along_dim(x, y, dim=len(y.shape) - 1).sum(-1).mean()

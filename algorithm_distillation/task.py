@@ -6,6 +6,7 @@ from typing import Optional
 import gym
 import numpy as np
 import stable_baselines3
+import torch.nn.functional
 from stable_baselines3.common.buffers import ReplayBuffer
 
 
@@ -54,7 +55,10 @@ class GymTask(Task):
     # If the environment has a discrete obs space of n classes, return an (n,)-shape array for each obs.
     # If the environment has a continuous obs space of certain shape, return a flattened array for each obs.
     obs_dim: int
+    act_dim: int
+
     obs_cls: str
+    act_cls: str
 
     def __init__(self, env, algorithm: str, config: Optional[dict] = None):
         """
@@ -64,9 +68,9 @@ class GymTask(Task):
         :param algorithm: the stable-baselines3 algorithm
         :param config: (Optional) the stable-baselines3 algorithm config (except for the gym environment)
         """
-        self.env = env
+        self._env = env
         if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise ValueError("Only support discrete action spaces.")
+            raise NotImplementedError("Only supports discrete action spaces for now.")
 
         self.algorithm = algorithm
         if algorithm not in self._algorithms:
@@ -82,6 +86,7 @@ class GymTask(Task):
 
         self.agent = self._algorithms[algorithm](**self.config)
         self.obs_dim, self.obs_cls = self._get_obs_specs()
+        self.act_dim, self.act_cls = self._get_act_specs()
 
     def train(self, steps: int):
         self.agent.learn(total_timesteps=steps)
@@ -113,8 +118,6 @@ class GymTask(Task):
             return self._randomly_sample_buffer(buffer, length, skip)
 
     def _get_obs_specs(self) -> tuple:
-        if not hasattr(self, "env"):
-            raise ValueError('Need to assign "env" attribute first.')
         obs_space = self.env.observation_space
 
         if isinstance(obs_space, gym.spaces.Discrete):
@@ -126,7 +129,23 @@ class GymTask(Task):
                 f"The observation space does not support {type(obs_space)}."
             )
 
-    def _obs_post_process(self, obs: np.ndarray) -> np.ndarray:
+    def _get_act_specs(self) -> tuple:
+        act_space = self.env.action_space
+
+        if isinstance(act_space, gym.spaces.Discrete):
+            return act_space.n, "discrete"
+        elif isinstance(act_space, gym.spaces.Box):
+            raise NotImplementedError(
+                f"The observation space does not support {type(act_space)}."
+            )
+
+    @property
+    def env(self) -> gym.Env:
+        if not hasattr(self, "_env"):
+            raise ValueError('Need to assign "_env" attribute first.')
+        return self._env
+
+    def obs_post_process(self, obs: np.ndarray) -> np.ndarray:
         """
         Post-process the observations according to its type and shape.
 
@@ -145,7 +164,7 @@ class GymTask(Task):
             raise RuntimeError("Impossible code path.")
 
     @staticmethod
-    def _act_post_process(act: np.ndarray) -> np.ndarray:
+    def act_post_process(act: np.ndarray) -> np.ndarray:
         """
         Post-process the actions. Assume actions are discrete with shape (length, 1) or (length).
 
@@ -155,7 +174,7 @@ class GymTask(Task):
         return act.reshape((-1, 1)).astype(int)
 
     @staticmethod
-    def _rew_post_process(rew: np.ndarray) -> np.ndarray:
+    def rew_post_process(rew: np.ndarray) -> np.ndarray:
         """
         Post-process the rewards. Rewards are scalars with shape (length,).
 
@@ -233,13 +252,13 @@ class GymTask(Task):
         :return: the tuple (obs, act, rew)
         """
         return (
-            self._obs_post_process(
+            self.obs_post_process(
                 self._get_range(buffer.observations, start, end, skip + 1)
             ),
-            self._act_post_process(
+            self.act_post_process(
                 self._get_range(buffer.actions, start, end, skip + 1)
             ),
-            self._rew_post_process(
+            self.rew_post_process(
                 self._get_range(buffer.rewards, start, end, skip + 1)
             ),
         )
