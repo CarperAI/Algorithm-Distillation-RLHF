@@ -29,7 +29,7 @@ def test_ad():
     assert len(task.agent.logger.history_value['rollout/exploration_rate']) == 100
 
     ad = GymAD(model)
-    ad.train(task_manager, 100, 10, skip=0, batch_size=8)
+    ad.train(task_manager, 100, 10, skip=0, batch_size=8, verbose=1)
 
-    obs, act, rew = ad.rollout(task, 16, 0)
-    print(obs, act, rew)
+    obs, act, rew, term = ad.rollout(task, 16, 0, verbose=1)
+    print(obs, act, rew, term)

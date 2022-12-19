@@ -3,4 +3,5 @@ transformers>=4.24.0
 torch>=1.12.1
 pytest>=7.2.0
 gym==0.21.0
-numpy>=1.23.5
+numpy
+tqdm
