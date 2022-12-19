@@ -83,9 +83,8 @@ class GymAD(AlgorithmDistillation):
         self.model.train()  # Set to train mode so that dropout and batch norm would update.
         losses = []
 
-        _tqdm_iter = tqdm(enumerate(data_iter), total=steps)
-
-        for step, sample in _tqdm_iter if verbose else enumerate(data_iter):
+        _tqdm_iter = tqdm(enumerate(data_iter), total=steps, disable=(verbose == 0))
+        for step, sample in _tqdm_iter:
             optimizer.zero_grad()
             obs, actions, rewards = sample
             one_hot_actions = torch.nn.functional.one_hot(
@@ -152,8 +151,8 @@ class GymAD(AlgorithmDistillation):
         obs, done = None, True
         cum_reward = 0.0
 
-        _tqdm_iter = tqdm(range(steps))
-        for step in _tqdm_iter if verbose else range(steps):
+        _tqdm_iter = tqdm(range(steps), disable=(verbose == 0))
+        for step in _tqdm_iter:
             if done:
                 obs, done = (
                     torch.tensor(
