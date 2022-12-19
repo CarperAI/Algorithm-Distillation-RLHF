@@ -2,7 +2,8 @@ import datetime
 import os
 import tempfile
 from collections import defaultdict
-from typing import Any, Optional, Union, Tuple, List
+from typing import Any, List, Optional, Tuple, Union
+
 from stable_baselines3.common.logger import Logger, make_output_format
 
 
@@ -17,18 +18,30 @@ class CustomLogger(Logger):
         self.history_value = defaultdict(list)
         self.history_mean_value = defaultdict(list)
 
-    def record(self, key: str, value: Any, exclude: Optional[Union[str, Tuple[str, ...]]] = None) -> None:
+    def record(
+        self,
+        key: str,
+        value: Any,
+        exclude: Optional[Union[str, Tuple[str, ...]]] = None,
+    ) -> None:
         super().record(key, value, exclude)
         self.history_value[key].append(value)
 
-    def record_mean(self, key: str, value: Any, exclude: Optional[Union[str, Tuple[str, ...]]] = None) -> None:
+    def record_mean(
+        self,
+        key: str,
+        value: Any,
+        exclude: Optional[Union[str, Tuple[str, ...]]] = None,
+    ) -> None:
         super().record_mean(key, value, exclude)
         self.history_mean_value[key].append(self.name_to_value[key])
 
 
-def configure(folder: Optional[str] = None,
-              format_strings: Optional[List[str]] = None,
-              logger_class=Logger) -> Logger:
+def configure(
+    folder: Optional[str] = None,
+    format_strings: Optional[List[str]] = None,
+    logger_class=Logger,
+) -> Logger:
     """
     (This is an adaptation of SB3's logger configuration helper function. The change was very minor, only one line
      towards the end to allow for a customized logger class.)
@@ -43,7 +56,10 @@ def configure(folder: Optional[str] = None,
     if folder is None:
         folder = os.getenv("SB3_LOGDIR")
     if folder is None:
-        folder = os.path.join(tempfile.gettempdir(), datetime.datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S-%f"))
+        folder = os.path.join(
+            tempfile.gettempdir(),
+            datetime.datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S-%f"),
+        )
     assert isinstance(folder, str)
     os.makedirs(folder, exist_ok=True)
 

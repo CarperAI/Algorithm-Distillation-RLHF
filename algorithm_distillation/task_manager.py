@@ -16,8 +16,8 @@ class TaskManager:
         if not tasks:
             raise ValueError("The task list cannot be empty.")
         for task in tasks[1:]:
-            for st in ['obs', 'act']:
-                if getattr(task, f'{st}_dim') != getattr(tasks[0], f'{st}_dim'):
+            for st in ["obs", "act"]:
+                if getattr(task, f"{st}_dim") != getattr(tasks[0], f"{st}_dim"):
                     raise ValueError(f"All tasks must have the same {st}_dim.")
 
         self.tasks = tasks

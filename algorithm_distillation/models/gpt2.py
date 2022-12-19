@@ -124,7 +124,11 @@ class GPT2AD(ADTransformer):
         """
         if obs is None:
             assert current_obs is not None, "Empty input."
-            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            device = (
+                torch.device("cuda")
+                if torch.cuda.is_available()
+                else torch.device("cpu")
+            )
             batch_size, timestep = current_obs.shape[0], 0
         else:
             device = obs.device
@@ -138,9 +142,11 @@ class GPT2AD(ADTransformer):
             current_step_id = timestep
 
         if step_ids is None and timestep > 0:
-            step_ids = torch.arange(0, timestep, dtype=torch.long, device=device).view(
-                1, timestep
-            ).repeat((batch_size, 1))
+            step_ids = (
+                torch.arange(0, timestep, dtype=torch.long, device=device)
+                .view(1, timestep)
+                .repeat((batch_size, 1))
+            )
 
         if timestep == 0:
             embedded_obs, embedded_act, embedded_rew = None, None, None
@@ -174,7 +180,9 @@ class GPT2AD(ADTransformer):
         input_seq = self.layer_norm_in_embedding(input_seq)
 
         if timestep == 0:
-            attention_mask = torch.ones((batch_size, num_extra), dtype=torch.float, device=device)
+            attention_mask = torch.ones(
+                (batch_size, num_extra), dtype=torch.float, device=device
+            )
         else:
             if attention_mask is None:
                 attention_mask = torch.ones(
@@ -186,7 +194,9 @@ class GPT2AD(ADTransformer):
             attention_mask = torch.concat(
                 [
                     attention_mask,
-                    torch.ones((batch_size, num_extra), dtype=torch.float, device=device),
+                    torch.ones(
+                        (batch_size, num_extra), dtype=torch.float, device=device
+                    ),
                 ],
                 dim=1,
             )

@@ -6,7 +6,6 @@ from typing import Optional
 import gym
 import numpy as np
 import stable_baselines3
-import torch.nn.functional
 from stable_baselines3.common.buffers import ReplayBuffer
 
 
@@ -18,6 +17,8 @@ class Task(abc.ABC):
 
     # `obs_dim` marks the total dimension of the observations
     obs_dim: int
+    act_dim: int
+    env: object
 
     @abc.abstractmethod
     def __init__(self, **kwargs):
@@ -134,7 +135,7 @@ class GymTask(Task):
 
         if isinstance(act_space, gym.spaces.Discrete):
             return act_space.n, "discrete"
-        elif isinstance(act_space, gym.spaces.Box):
+        else:
             raise NotImplementedError(
                 f"The observation space does not support {type(act_space)}."
             )
@@ -196,7 +197,9 @@ class GymTask(Task):
         """
         pos = buffer.pos
         total_length = length * (skip + 1)
-        assert buffer.buffer_size > total_length, "Replay buffer size must be larger than the sequence length."
+        assert (
+            buffer.buffer_size > total_length
+        ), "Replay buffer size must be larger than the sequence length."
 
         start = (pos - total_length + buffer.buffer_size) % buffer.buffer_size
         end = pos
@@ -215,7 +218,9 @@ class GymTask(Task):
         :return: an (observations, actions, rewards) tuple.
         """
         total_length = length * (skip + 1)
-        assert buffer.buffer_size > total_length, "Replay buffer size must be larger than the sequence length."
+        assert (
+            buffer.buffer_size > total_length
+        ), "Replay buffer size must be larger than the sequence length."
 
         if not buffer.full:
             start = random.randint(0, buffer.pos - total_length)
@@ -227,7 +232,9 @@ class GymTask(Task):
         return self._get_obs_act_rew(buffer, start, end, skip)
 
     @staticmethod
-    def _get_range(array: np.ndarray, start: int, end: int, interval: int) -> np.ndarray:
+    def _get_range(
+        array: np.ndarray, start: int, end: int, interval: int
+    ) -> np.ndarray:
         """
         A helper function to either slice array[start:end:interval] or combine array[start::interval] and
         array[:end:interval] depending on whether start < end.
@@ -240,7 +247,9 @@ class GymTask(Task):
         if start < end:
             return array[start:end:interval]
         else:
-            return np.concatenate([array[start::interval], array[:end:interval]], axis=0)
+            return np.concatenate(
+                [array[start::interval], array[:end:interval]], axis=0
+            )
 
     def _get_obs_act_rew(self, buffer: ReplayBuffer, start: int, end: int, skip: int):
         """
