@@ -1,5 +1,5 @@
 import torch
-from algorithm_distillation.models.util import stack_seq
+from algorithm_distillation.models.util import stack_seq, get_sequence
 
 
 def test_stack_seq():
@@ -34,3 +34,25 @@ def test_stack_seq():
     # when batch size is 0, all of obs, act, rew should be None. It should just return the extra.
     result = stack_seq(None, None, None, extra)
     assert torch.all(result.isclose(extra))
+
+
+def test_get_sequence():
+    arr = torch.tensor([7, 8, 9])
+    n = 3
+    end_idx = 4
+    interval = 2
+    assert all(get_sequence(arr, n, end_idx, interval) == torch.tensor([7, 9]))
+    n = 1
+    end_idx = 3
+    interval = 2
+    assert all(get_sequence(arr, n, end_idx, interval) == torch.tensor([8]))
+    n = 1
+    end_idx = 2
+    interval = 2
+    assert all(get_sequence(arr, n, end_idx, interval) == torch.tensor([7]))
+
+    n = 3
+    end_idx = 5
+    interval = 2
+    # can only fetch a max elem that the circular buffer allows (i.e., 2 in this case)
+    assert all(get_sequence(arr, n, end_idx, interval) == torch.tensor([8, 7]))

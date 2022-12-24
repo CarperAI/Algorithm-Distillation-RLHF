@@ -11,7 +11,7 @@ def test_ad():
               'buffer_size': 1000,
               'policy': 'MlpPolicy'
               }
-    model = GPT2AD(env.observation_space.n, env.action_space.n, 12, max_ep_len=16)
+    model = GPT2AD(env.observation_space.n, env.action_space.n, 12, max_step_len=16)
 
     task = GymTask(env, 'DQN', config)
     # Inject a customized logger
@@ -31,5 +31,9 @@ def test_ad():
     ad = GymAD(model)
     ad.train(task_manager, 100, 10, skip=0, batch_size=8, verbose=1)
 
-    obs, act, rew, term = ad.rollout(task, 16, 0, verbose=1)
+    obs, act, rew, term = ad.rollout(task, 100, 0, verbose=1)
+    assert obs.size(0) == 100
+    print(obs, act, rew, term)
+    obs, act, rew, term = ad.rollout(task, 100, 2, verbose=1)
+    assert obs.size(0) == 100
     print(obs, act, rew, term)

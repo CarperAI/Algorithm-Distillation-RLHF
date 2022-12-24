@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 
 from algorithm_distillation.models.ad_transformer import ADTransformer
+from .models.util import get_sequence
 
 from .task import GymTask
 from .task_manager import TaskManager
@@ -130,10 +131,15 @@ class GymAD(AlgorithmDistillation):
                     f"The task must have observation dimension {self.model.obs_dim}"
                 )
         env = task.env
+
+        # The max_len of history should be 1 less than max_step_len (leave room for current_obs)
+        # (recall that max sequence length for the transformer is `model.max_step_len * 3`)
+        max_len = self.model.max_step_len - 1
+
+        # Prepare sequential inputs/outputs for the transformer
         observations = torch.zeros(
             (steps, task.obs_dim), device=device, dtype=torch.float
         )
-
         # Predicted action logits
         action_logits = torch.zeros(
             (steps, task.act_dim), device=device, dtype=torch.float
@@ -144,7 +150,6 @@ class GymAD(AlgorithmDistillation):
         actions_one_hot = torch.zeros(
             (steps, task.act_dim), device=device, dtype=torch.float
         )
-
         rewards = torch.zeros((steps, 1), device=device, dtype=torch.float)
         terminals = torch.zeros((steps,), device=device, dtype=torch.bool)
 
@@ -153,7 +158,7 @@ class GymAD(AlgorithmDistillation):
 
         _tqdm_iter = tqdm(range(steps), disable=(verbose == 0))
         for step in _tqdm_iter:
-            if done:
+            if done:  # Last step was terminal. Reset.
                 obs, done = (
                     torch.tensor(
                         task.obs_post_process(np.array([env.reset()])),
@@ -165,31 +170,33 @@ class GymAD(AlgorithmDistillation):
 
             # TODO: can be optimized using cache
             with torch.inference_mode():
+                # The input of the model is collected from the index `step` (exclusive) going backwards
+                # with interval `skip + 1`. It goes as far back as possible until either the beginning or
+                # `max_len` steps (the maximal number of steps that can fit into the transformer) are
+                # collected. We then take the argmax of the prediction of the next action and perform the
+                # rollout.
                 action_logits[step] = self.model(
-                    None if step < skip + 1 else observations[None, : step : skip + 1],
-                    None
-                    if step < skip + 1
-                    else actions_one_hot[None, : step : skip + 1],
-                    None if step < skip + 1 else rewards[None, : step : skip + 1],
+                    get_sequence(observations, max_len, step, skip + 1)[None, :],
+                    get_sequence(actions_one_hot, max_len, step, skip + 1)[None, :],
+                    get_sequence(rewards, max_len, step, skip + 1)[None, :],
                     current_obs=obs[None, 0],
                     action_only=True,
-                )[0, step]
+                )[0, min(step // (skip + 1), max_len - 1)]
+
             actions[step] = torch.argmax(action_logits[step]).type(torch.long)
             actions_one_hot[step] = torch.nn.functional.one_hot(
                 actions[step], num_classes=task.act_dim
             ).type(torch.float)
 
             observations[step] = obs[None, 0]
-            obs, rew, done, _ = env.step(actions[step].item())
+            obs, rew, done, _ = env.step(actions[step].item())  # are still np.ndarray
             obs = torch.tensor(
                 task.obs_post_process(np.array([obs])), device=device, dtype=torch.float
             )
-            rew = torch.tensor(
-                task.rew_post_process(np.array([rew])), device=device, dtype=torch.float
-            )
-            rewards[step] = rew[0]
+
+            rewards[step] = rew
             terminals[step] = done
-            cum_reward += rew[0]
+            cum_reward += rew
 
             if verbose:  # Update loss if verbose is on
                 _tqdm_iter.set_postfix(ordered_dict={"cum_reward": cum_reward})
