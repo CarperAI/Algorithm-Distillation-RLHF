@@ -226,7 +226,7 @@ class GymTask(Task):
             start = random.randint(0, buffer.pos - total_length)
             end = start + total_length
         else:
-            start = random.randint(0, buffer.buffer_size)
+            start = random.randint(0, buffer.buffer_size - total_length) + buffer.pos
             end = (start + total_length) % buffer.buffer_size
 
         return self._get_obs_act_rew(buffer, start, end, skip)
