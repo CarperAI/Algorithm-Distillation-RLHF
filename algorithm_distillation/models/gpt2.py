@@ -63,10 +63,9 @@ class GPT2AD(ADTransformer):
         self.action_tanh = action_tanh
         self.max_step_len = max_step_len
         # Generate the most basic GPT2 config
-        config = transformers.GPT2Config(vocab_size=1,
-                                         n_embd=hidden_size,
-                                         n_positions=max_step_len * 3,
-                                         **kwargs)
+        config = transformers.GPT2Config(
+            vocab_size=1, n_embd=hidden_size, n_positions=max_step_len * 3, **kwargs
+        )
         self.transformers = transformers.GPT2Model(config)
         # Remove the position embedding by replacing it with a dummy.
         self.transformers.wpe = ZeroDummy((hidden_size,))
@@ -126,7 +125,9 @@ class GPT2AD(ADTransformer):
         :param action_only: (Optional) return predicted actions only.
         :return: predicted action logits (if action_only) or predicted action logits, rewards, and obs.
         """
-        if obs is None or obs.numel() == 0:  # None or empty tensor are regarded as no history
+        if (
+            obs is None or obs.numel() == 0
+        ):  # None or empty tensor are regarded as no history
             assert current_obs is not None, "Empty input."
             device = (
                 torch.device("cuda")

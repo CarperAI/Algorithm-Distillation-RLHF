@@ -24,10 +24,7 @@ def stack_seq(obs, act, rew, extra=None) -> torch.Tensor:
         return torch.concat([stacked, extra], dim=1)
 
 
-def get_sequence(arr: torch.Tensor,
-                 num_items: int,
-                 end_idx: int,
-                 interval: int):
+def get_sequence(arr: torch.Tensor, num_items: int, end_idx: int, interval: int):
     """
     Get the subsequence of indices 'end_idx - num_items * interval, ..., end_idx - interval' from
     the PyTorch tensor `arr`.
@@ -60,7 +57,7 @@ def get_sequence(arr: torch.Tensor,
         # The subseq cuts in the middle. Update `end_idx` to the actual end index on the second half.
         end_idx = max(0, end_idx % length - interval + 1)
         return torch.concat(
-                [arr[start_idx % length :: interval], arr[:end_idx:interval]], dim=0
-            )
+            [arr[start_idx % length :: interval], arr[:end_idx:interval]], dim=0
+        )
     else:
         return arr[start_idx:end_idx:interval]

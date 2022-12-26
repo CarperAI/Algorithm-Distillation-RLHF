@@ -6,8 +6,8 @@ import torch
 from tqdm import tqdm
 
 from algorithm_distillation.models.ad_transformer import ADTransformer
-from .models.util import get_sequence
 
+from .models.util import get_sequence
 from .task import GymTask
 from .task_manager import TaskManager
 
@@ -168,12 +168,12 @@ class GymAD(AlgorithmDistillation):
                     False,
                 )
 
-            # TODO: can be optimized using cache
+            # TODO: can probably be optimized using kv cache
             with torch.inference_mode():
                 # The input of the model is collected from the index `step` (exclusive) going backwards
                 # with interval `skip + 1`. It goes as far back as possible until either the beginning or
-                # `max_len` steps (the maximal number of steps that can fit into the transformer) are
-                # collected. We then take the argmax of the prediction of the next action and perform the
+                # `max_len` number of steps (the maximal number of steps that can fit into the transformer)
+                # We then take the argmax of the prediction of the next action and perform the
                 # rollout.
                 action_logits[step] = self.model(
                     get_sequence(observations, max_len, step, skip + 1)[None, :],
@@ -194,9 +194,9 @@ class GymAD(AlgorithmDistillation):
                 task.obs_post_process(np.array([obs])), device=device, dtype=torch.float
             )
 
-            rewards[step] = rew
-            terminals[step] = done
-            cum_reward += rew
+            rewards[step] = float(rew)
+            terminals[step] = bool(done)
+            cum_reward += float(rew)
 
             if verbose:  # Update loss if verbose is on
                 _tqdm_iter.set_postfix(ordered_dict={"cum_reward": cum_reward})
