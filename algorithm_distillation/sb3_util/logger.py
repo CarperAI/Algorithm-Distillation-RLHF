@@ -9,8 +9,8 @@ from stable_baselines3.common.logger import Logger, make_output_format
 
 class CustomLogger(Logger):
     """
-    A logger object can be plugged into an SB3 agent to record the metric. Here we customize it by overriding
-     in order to add a history. One can further customize to connect with wandb.
+    A logger object can be plugged into an SB3 agent to record the metrics. Here we customize it to save metric
+    histories. One can further customize it and implement, for example, the connection with wandb.
     """
 
     def __init__(self, *args, **kwargs):
@@ -43,9 +43,10 @@ def configure(
     logger_class=Logger,
 ) -> Logger:
     """
-    (This is an adaptation of SB3's logger configuration helper function. The change was very minor, only one line
-     towards the end to allow for a customized logger class.)
     Configure the current logger.
+    (This is almost the same as SB3's logger configuration helper function except one line in the parameter and
+     another line towards the end to allow for customized logger classes.)
+
     :param folder: the save location
         (if None, $SB3_LOGDIR, if still None, tempdir/SB3-[date & time])
     :param format_strings: the output logging format

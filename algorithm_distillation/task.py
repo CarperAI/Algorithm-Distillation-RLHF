@@ -280,6 +280,7 @@ class GymTask(Task):
         """
         A helper function to either slice array[start:end:interval] or combine array[start::interval] and
         array[:end:interval] depending on whether start < end.
+
         :param array: the sliced array.
         :param start: the starting index.
         :param end: the ending index (exclusive).
@@ -296,6 +297,7 @@ class GymTask(Task):
     def _get_obs_act_rew(self, buffer: ReplayBuffer, start: int, end: int, skip: int):
         """
         Return a tuple (obs, act, rew) sampled according to the buffer and the parameters.
+
         :param buffer: the replay buffer.
         :param start: the starting index.
         :param end: the ending index.

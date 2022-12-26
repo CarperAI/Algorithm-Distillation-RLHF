@@ -6,6 +6,7 @@ from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 class RolloutCallback(BaseCallback):
     """
     This is a custom callback that collects rollouts from an on-policy algorithm.
+
     :param buffer: The external replay buffer to save rollouts.
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages.
     """
