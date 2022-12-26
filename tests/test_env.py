@@ -8,7 +8,7 @@ def test_gym_task():
               'buffer_size': 1000,
               'policy': 'MlpPolicy'
               }
-    task = GymTask(env, 'DQN', config)
+    task = GymTask(env, 'DQN', config=config)
     assert task.obs_cls == 'discrete'
     assert task.obs_dim == 16  # The default observation space of FrozenLake is discrete 16 labels
 

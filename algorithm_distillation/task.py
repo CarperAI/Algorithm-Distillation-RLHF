@@ -8,6 +8,8 @@ import numpy as np
 import stable_baselines3
 from stable_baselines3.common.buffers import ReplayBuffer
 
+from algorithm_distillation.sb3_util.callback import RolloutCallback
+
 
 class Task(abc.ABC):
     """
@@ -25,11 +27,12 @@ class Task(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def train(self, steps: int):
+    def train(self, steps: int, **kwargs):
         """
         Train a number of steps.
 
-        :param steps: the number of steps to train
+        :param steps: the number of steps to train.
+        :param kwargs: (Optional) extra parameters for SB3 `learn` method.
         :return: None
         """
         pass
@@ -49,9 +52,12 @@ class Task(abc.ABC):
 
 
 class GymTask(Task):
-    # TODO: Still need some work to set up the on-policy algorithms due to problems in their rollout buffers.
-    _algorithms = {"DQN": stable_baselines3.DQN}
-    _on_policy = ("PPO",)
+    # TODO: support TD3 for continuous action space?
+    _algorithms = {"DQN": stable_baselines3.DQN,
+                   "PPO": stable_baselines3.PPO,
+                   "A2C": stable_baselines3.A2C,
+                   }
+    _on_policy = ("PPO", "A2C")
 
     # If the environment has a discrete obs space of n classes, return an (n,)-shape array for each obs.
     # If the environment has a continuous obs space of certain shape, return a flattened array for each obs.
@@ -61,12 +67,20 @@ class GymTask(Task):
     obs_cls: str
     act_cls: str
 
-    def __init__(self, env, algorithm: str, config: Optional[dict] = None):
+    def __init__(
+        self,
+        env,
+        algorithm: str,
+        buffer_size: int = 10_000,
+        config: Optional[dict] = None,
+    ):
         """
         GymTask takes in a gym environment and set up a stable-baselines3 algorithm to train a policy network.
 
         :param env: the gym environment
         :param algorithm: the stable-baselines3 algorithm
+        :param buffer_size: (Optional) the buffer size. This refers to the stored history length where the
+            transformer samples from, and applies to both on-policy and off-policy
         :param config: (Optional) the stable-baselines3 algorithm config (except for the gym environment)
         """
         self._env = env
@@ -78,19 +92,49 @@ class GymTask(Task):
             raise ValueError(
                 f"Input must be one of {self._algorithms.keys()}. Got {algorithm} instead."
             )
+        self.buffer_size = buffer_size
 
+        # Set up the agent
         self.config = {} if config is None else config.copy()
         self.config["env"] = self.env
-        # Default to MultiInputPolicy which is applicable most of the time.
-        if "policy" not in self.config:
-            self.config["policy"] = "MultiInputPolicy"
+        if "buffer_size" in self.config:
+            self.config[
+                "buffer_size"
+            ] = self.buffer_size  # Overwrite policy buffer size if exists
 
+        # Set up the defaults
+        defaults = {
+            "policy": "MultiInputPolicy",  # a common policy applicable most of the time
+        }
+        # Set up the defaults specifically for either on-policy or off-policy algos
+        if self.algorithm in self._on_policy:
+            policy_level_defaults = {
+                "n_steps": 2048,
+            }
+        else:
+            policy_level_defaults = {}
+        self.config = {**defaults, **policy_level_defaults, **self.config}
+        # Set up the agent
         self.agent = self._algorithms[algorithm](**self.config)
+
+        # If on-policy, set up the the callback to collect rollout
+        if self.algorithm in self._on_policy:
+            buffer_config = {
+                "buffer_size": self.buffer_size,
+                "observation_space": self._env.observation_space,
+                "action_space": self._env.action_space,
+            }
+            self.buffer = ReplayBuffer(**buffer_config)
+            self.callback = RolloutCallback(self.agent, self.buffer)
+        else:
+            self.buffer = self.agent.replay_buffer
+            self.callback = None
+
         self.obs_dim, self.obs_cls = self._get_obs_specs()
         self.act_dim, self.act_cls = self._get_act_specs()
 
-    def train(self, steps: int):
-        self.agent.learn(total_timesteps=steps)
+    def train(self, steps: int, **kwargs):
+        self.agent.learn(total_timesteps=steps, callback=self.callback, **kwargs)
 
     def sample_history(
         self, length: int, skip: int = 0, most_recent: bool = False
@@ -105,10 +149,7 @@ class GymTask(Task):
         :param most_recent: (Optional) get the most recent histories. False to sample randomly.
         :return: a tuple of (observations, actions, rewards). Each is a tensor.
         """
-        if self.algorithm in self._on_policy:
-            raise NotImplementedError("Not supporting on-policy algorithms yet.")
-
-        buffer = self.agent.replay_buffer
+        buffer = self.buffer
 
         if buffer.n_envs != 1:
             raise NotImplementedError("Not supporting parallel environments yet.")

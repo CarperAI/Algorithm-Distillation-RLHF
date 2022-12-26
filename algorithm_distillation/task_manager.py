@@ -22,15 +22,16 @@ class TaskManager:
 
         self.tasks = tasks
 
-    def train(self, steps: int):
+    def train(self, steps: int, **kwargs):
         """
         Train `steps` amount of steps for all the tasks.
 
         :param steps: the amount of gradient steps to train
+        :param kwargs: (Optional) extra parameters for SB3 `learn` method.
         :return: None
         """
         for task in self.tasks:
-            task.train(steps)
+            task.train(steps, **kwargs)
 
     def sample_history(self, length: int, skip: int = 0) -> tuple:
         """
