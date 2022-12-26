@@ -53,10 +53,11 @@ class Task(abc.ABC):
 
 class GymTask(Task):
     # TODO: support TD3 for continuous action space?
-    _algorithms = {"DQN": stable_baselines3.DQN,
-                   "PPO": stable_baselines3.PPO,
-                   "A2C": stable_baselines3.A2C,
-                   }
+    _algorithms = {
+        "DQN": stable_baselines3.DQN,
+        "PPO": stable_baselines3.PPO,
+        "A2C": stable_baselines3.A2C,
+    }
     _on_policy = ("PPO", "A2C")
 
     # If the environment has a discrete obs space of n classes, return an (n,)-shape array for each obs.
