@@ -16,14 +16,14 @@ def test_ad(policy: str, env_name: str):
                   'policy': 'MlpPolicy'
                   }
     else:
-        config = {'n_steps': 100,
+        config = {'n_steps': 30,
                   'batch_size': 10,
                   'policy': 'MlpPolicy'
                   }
     if policy == 'A2C':
         config.pop('batch_size')
 
-    task = GymTask(env, policy, buffer_size=1000, config=config)
+    task = GymTask(env, policy, buffer_size=100, config=config)
     model = GPT2AD(task.obs_dim, task.act_dim, 12, max_step_len=16)
 
     # Inject a customized logger
@@ -45,14 +45,12 @@ def test_ad(policy: str, env_name: str):
         # Only logged once, because training step (100) equals the rollout length.
         # SB3 off-policy algorithms first collect rollouts accumulating `n_steps` until rollout buffer is full,
         # and then check if training continues.
-        assert len(task.agent.logger.history_value['rollout/ep_rew_mean']) == 1
+        assert len(task.agent.logger.history_value['rollout/ep_rew_mean']) == 4
 
     ad = GymAD(model)
     ad.train(task_manager, 100, 10, skip=0, batch_size=8, verbose=1)
 
     obs, act, rew, term = ad.rollout(task, 100, 0, verbose=1)
     assert obs.size(0) == 100
-    print(obs, act, rew, term)
     obs, act, rew, term = ad.rollout(task, 100, 2, verbose=1)
     assert obs.size(0) == 100
-    print(obs, act, rew, term)

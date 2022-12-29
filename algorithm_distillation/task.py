@@ -98,10 +98,9 @@ class GymTask(Task):
         # Set up the agent
         self.config = {} if config is None else config.copy()
         self.config["env"] = self.env
-        if "buffer_size" in self.config:
-            self.config[
-                "buffer_size"
-            ] = self.buffer_size  # Overwrite policy buffer size if exists
+        if "buffer_size" in self.config or algorithm not in self._on_policy:
+            # Overwrite policy buffer size if exists/doing off-policy
+            self.config["buffer_size"] = self.buffer_size
 
         # Set up the defaults
         defaults = {
@@ -150,15 +149,13 @@ class GymTask(Task):
         :param most_recent: (Optional) get the most recent histories. False to sample randomly.
         :return: a tuple of (observations, actions, rewards). Each is a tensor.
         """
-        buffer = self.buffer
-
-        if buffer.n_envs != 1:
+        if self.buffer.n_envs != 1:
             raise NotImplementedError("Not supporting parallel environments yet.")
 
         if most_recent:
-            return self._get_most_recent_history(buffer, length, skip)
+            return self._get_most_recent_history(self.buffer, length, skip)
         else:
-            return self._randomly_sample_buffer(buffer, length, skip)
+            return self._randomly_sample_buffer(self.buffer, length, skip)
 
     def _get_obs_specs(self) -> tuple:
         obs_space = self.env.observation_space
@@ -238,7 +235,8 @@ class GymTask(Task):
         :return: an (observations, actions, rewards) tuple.
         """
         pos = buffer.pos
-        total_length = length * (skip + 1)
+        total_length = (length - 1) * (skip + 1) + 1
+
         assert (
             buffer.buffer_size > total_length
         ), "Replay buffer size must be larger than the sequence length."
@@ -259,7 +257,7 @@ class GymTask(Task):
         :param skip: the amount to skip between states.
         :return: an (observations, actions, rewards) tuple.
         """
-        total_length = length * (skip + 1)
+        total_length = (length - 1) * (skip + 1) + 1
         assert (
             buffer.buffer_size > total_length
         ), "Replay buffer size must be larger than the sequence length."
@@ -268,7 +266,9 @@ class GymTask(Task):
             start = random.randint(0, buffer.pos - total_length)
             end = start + total_length
         else:
-            start = random.randint(0, buffer.buffer_size - total_length) + buffer.pos
+            start = (
+                random.randint(0, buffer.buffer_size - total_length) + buffer.pos
+            ) % buffer.buffer_size
             end = (start + total_length) % buffer.buffer_size
 
         return self._get_obs_act_rew(buffer, start, end, skip)

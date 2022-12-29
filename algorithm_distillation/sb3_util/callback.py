@@ -36,7 +36,7 @@ class RolloutCallback(BaseCallback):
         tgt_start = [0]
         if buffer.buffer_size < end:  # If overflown, wrap around to the beginning
             ranges.append((0, end - buffer.buffer_size))
-            tgt_start.append(buffer.buffer_size)
+            tgt_start.append(buffer.buffer_size - start)
             buffer.full = True
 
         for (st, ed), tst in zip(ranges, tgt_start):
