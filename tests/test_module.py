@@ -5,7 +5,7 @@ from algorithm_distillation.models import GPT2AD
 
 @pytest.mark.parametrize("n", [1, 2, 3])
 def test_GPT2AD(n):
-    model = GPT2AD(2, n, 12, max_ep_len=16)
+    model = GPT2AD(2, n, 12, max_step_len=16)
     model.eval()  # Disable dropout
     sample_obs = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=torch.float)
     # two samples, two steps in each trajectory:

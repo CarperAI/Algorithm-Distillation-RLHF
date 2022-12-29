@@ -6,6 +6,9 @@ import torch
 class ADTransformer(abc.ABC, torch.nn.Module):
     obs_dim: int
     act_dim: int
+    # The maximal amount of steps in the input.
+    # Note: the corresponding max sequence length is `max_step_len * 3`.
+    max_step_len: int
 
     @abc.abstractmethod
     def __init__(self, **kwargs):

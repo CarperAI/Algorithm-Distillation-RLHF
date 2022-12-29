@@ -16,20 +16,22 @@ class TaskManager:
         if not tasks:
             raise ValueError("The task list cannot be empty.")
         for task in tasks[1:]:
-            if task.obs_dim != tasks[0].obs_dim:
-                raise ValueError("All tasks must have the same obs_dim.")
+            for st in ["obs", "act"]:
+                if getattr(task, f"{st}_dim") != getattr(tasks[0], f"{st}_dim"):
+                    raise ValueError(f"All tasks must have the same {st}_dim.")
 
         self.tasks = tasks
 
-    def train(self, steps: int):
+    def train(self, steps: int, **kwargs):
         """
         Train `steps` amount of steps for all the tasks.
 
         :param steps: the amount of gradient steps to train
+        :param kwargs: (Optional) extra parameters for SB3 `learn` method.
         :return: None
         """
         for task in self.tasks:
-            task.train(steps)
+            task.train(steps, **kwargs)
 
     def sample_history(self, length: int, skip: int = 0) -> tuple:
         """
