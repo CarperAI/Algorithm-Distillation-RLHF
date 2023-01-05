@@ -42,7 +42,6 @@ def main(hparams={}):
         sentiments = list(map(partial(get_score_for_label, 'joy'), output_batch))
         return sentiments
 
-    # Take few words off of movies reviews as prompts
     stories = load_dataset("adamlin/roc_story")
     prompts = [d['sentence1'] for d in stories['train']]
     eval_prompts = [d for d in stories['validation'][:64]['sentence1']]

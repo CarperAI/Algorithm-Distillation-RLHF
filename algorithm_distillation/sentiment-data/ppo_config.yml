@@ -22,7 +22,7 @@ train:
   pipeline: "PromptPipeline"  # prompt pipeline to load
   orchestrator: "PPOOrchestrator"  # orchestrator to load
 
-  rollout_logging_dir: "~/Algorithm-Distillation-RLHF/algorithm_distillation/sentiment-data/rollouts"
+  rollout_logging_dir: "../algorithm_distillation/sentiment-data/rollouts"
 
 method:
   name: 'ppoconfig'  # Name of RL method config
