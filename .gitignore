@@ -1,8 +1,10 @@
 trlx
 algorithm_distillation/sentiment-data/ray_results/
 algorithm_distillation/sentiment-data/rollouts/run-*
+algorithm_distillation/sentiment-data/decoded_rollouts
 algorithm_distillation/sentiment-data/wandb/
 wandb/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
