@@ -5,9 +5,10 @@ from transformers import AutoTokenizer
 from typing import Dict, Any
 
 class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
-    def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str):
+    def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str, verbose: bool = True):
         self.tokenizer = tokenizer 
         self.rollouts_folder = Path(rollouts_folder_fpath)
+        self.verbose = verbose
         
     def format_rollout(self, d: Dict[Any, Any]) -> str:
         return f"Prompt:{d['query_text']}\nCompletion:{d['response_text']}\nReward:{d['rewards'][-1]}\n\n"
@@ -22,13 +23,18 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
     
     def __iter__(self):
         
-        runs = [run for run in self.rollouts_folder.iterdir() if run.name.startswith('run-e')]
-        print(f'Found {len(runs)} runs...')
+        if self.verbose:
+            runs = [run for run in self.rollouts_folder.iterdir() if run.name.startswith('run-e')]
+            
+        print(f'Iterating over {len(runs)} runs...')
         for run in runs:
             
             config = json.loads(open(run / 'config.json', 'r').read())
             epochs = [epoch for epoch in run.iterdir() if epoch.name != 'config.json']
-            print(f'Run {run.name} has {len(epochs)} epochs...')
+            
+            if self.verbose:
+                print(f'...and {run.name} has {len(epochs)} epochs.')
+                
             epochs = sorted(epochs)
             for epoch in epochs:
                 # print(f'Yielding from epoch {epoch.name}')
