@@ -12,7 +12,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=5e-5)
 
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
 train_dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts/train')
-eval_dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts/eval')
+eval_dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts/eval', verbose=False)
 
 train_dataloader = torch.utils.data.DataLoader(train_dataset, shuffle=False)
 
