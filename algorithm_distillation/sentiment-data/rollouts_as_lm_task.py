@@ -68,7 +68,6 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
                 if len(prompt) > 0:      
                     yield self.tokenize_for_training(prompt)
                 
-        raise StopIteration
     
 if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
