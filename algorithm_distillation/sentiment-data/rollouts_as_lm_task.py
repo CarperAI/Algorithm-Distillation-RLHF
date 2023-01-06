@@ -5,13 +5,14 @@ from transformers import AutoTokenizer
 from typing import Dict, Any
 
 class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
-    def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str, verbose: bool = True):
+    def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str, for_generation: bool = False, verbose: bool = True):
         self.tokenizer = tokenizer 
         self.rollouts_folder = Path(rollouts_folder_fpath)
         self.verbose = verbose
+        self.for_generation = for_generation
         
     def format_rollout(self, d: Dict[Any, Any]) -> str:
-        return f"Prompt:{d['query_text']}\nCompletion:{d['response_text']}\nReward:{d['rewards'][-1]}\n\n"
+        return f"Prompt: {d['query_text']}\nCompletion: {d['response_text']}\nReward: {d['rewards'][-1]}\n\n"
     
     def tokenize_for_training(self, x: str):
         inputs = self.tokenizer(x, truncation=True, return_tensors='pt')
@@ -23,10 +24,10 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
     
     def __iter__(self):
         
-        if self.verbose:
-            runs = [run for run in self.rollouts_folder.iterdir() if run.name.startswith('run-e')]
-            
-        print(f'Iterating over {len(runs)} runs...')
+        runs = [run for run in self.rollouts_folder.iterdir() if run.name.startswith('run-e')]
+        if self.verbose:    
+            print(f'Iterating over {len(runs)} runs...')
+        
         for run in runs:
             
             config = json.loads(open(run / 'config.json', 'r').read())
@@ -44,17 +45,25 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
                 rollout_idx = 0
                 prompt = ""
                 while rollout_idx < len(rollouts):
-                    rollout = self.format_rollout(rollouts[rollout_idx])
-                    rollout_idx += 1
                     
-                    new_prompt = prompt + rollout
-                    new_ids = self.tokenizer.tokenize(new_prompt)
-                    
-                    if len(new_ids) > self.tokenizer.model_max_length: # self.tokenizer.model_max_length:
-                        yield self.tokenize_for_training(prompt)
-                        prompt = ""
+                    if self.for_generation:
+                        d = rollouts[rollout_idx]
+                        rollout_idx += 1
+                        generation_prompt = f"Prompt: {d['query_text']}\nCompletion:"
+                        yield self.tokenize_for_training(generation_prompt)
+                        
                     else:
-                        prompt = new_prompt
+                        rollout = self.format_rollout(rollouts[rollout_idx])
+                        rollout_idx += 1
+                        
+                        new_prompt = prompt + rollout
+                        new_ids = self.tokenizer.tokenize(new_prompt)
+                        
+                        if len(new_ids) > self.tokenizer.model_max_length: # self.tokenizer.model_max_length:
+                            yield self.tokenize_for_training(prompt)
+                            prompt = ""
+                        else:
+                            prompt = new_prompt
                     
                 if len(prompt) > 0:      
                     yield self.tokenize_for_training(prompt)
@@ -63,7 +72,7 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
     
 if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts')
+    dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts', for_generation=True)
     for ex in dataset:
         print(tokenizer.decode(ex['input_ids'][0]))
         print('\n---------\n')
