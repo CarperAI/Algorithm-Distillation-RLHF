@@ -1,9 +1,14 @@
 import torch
+import wandb
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 from accelerate import Accelerator
 from rollouts_as_lm_task import RolloutsAsLanguageModellingTask
+from utils import ShuffledIterableDataset
 from tqdm.auto import tqdm
+
+wandb.init(project="algorithm-distillation")
+logging_table = wandb.Table(columns=["Step", "Generation"])
 
 accelerator = Accelerator()
 
@@ -27,6 +32,7 @@ for epoch in range(10):
         optimizer.zero_grad()
         output = model(**batch)
         loss = output.loss
+        wandb.log({'loss': loss.item(), 'step': total_steps})
         accelerator.backward(loss)
         optimizer.step()
         total_steps += 1
@@ -46,6 +52,7 @@ for epoch in range(10):
                 loss = output.loss
                 eval_loss += loss.item()
             eval_loss /= idx
+            wandb.log({'eval_loss': eval_loss, 'step': total_steps})
             print(f'Avg loss after {total_steps}: {eval_loss}')
             model.train()
             
@@ -58,21 +65,18 @@ for epoch in range(10):
             generate_dataloader = torch.utils.data.DataLoader(generate_dataset, shuffle=False)
             generate_dataloader = accelerator.prepare(generate_dataloader)
             
-            print('-------')
-            print('Generating examples')
-            print('--------')
-            
             for idx, batch in enumerate(generate_dataloader):
                 if idx >= generate_size:
                     break
                 batch = {k:v.squeeze(0) for k,v in batch.items()}
                 outputs = model.generate(**batch, max_length=100, do_sample=True, pad_token_id=tokenizer.eos_token_id)
                 text = tokenizer.decode(outputs[0])
-            
                 
-                print(text)
-                print('------------------')
-                print()
+                logging_table.add_data(total_steps, text)
+            
+            logging_table = wandb.Table(columns=logging_table.columns, data=logging_table.data)
+            wandb.log({'Generations Table': logging_table})
+            
             
             model.train()
                 
