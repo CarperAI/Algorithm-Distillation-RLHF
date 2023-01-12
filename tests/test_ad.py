@@ -1,9 +1,9 @@
 import gym
 import pytest
 
-from algorithm_distillation import GymTask, TaskManager, GymAD
+from algorithm_distillation.rl_tasks import GymTask, TaskManager, GymAD
 from algorithm_distillation.models import GPT2AD
-from algorithm_distillation.sb3_util import CustomLogger, configure
+from algorithm_distillation.models.sb3_util import CustomLogger, configure
 
 
 @pytest.mark.parametrize("policy", ['DQN', 'PPO', 'A2C'])

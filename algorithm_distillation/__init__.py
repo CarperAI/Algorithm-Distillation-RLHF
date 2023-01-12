@@ -1,5 +1,3 @@
-from .ad import AlgorithmDistillation, GymAD
-from .task import GymTask, Task
-from .task_manager import TaskManager
+from algorithm_distillation import rl_tasks
 
-__all__ = ["AlgorithmDistillation", "GymAD", "Task", "GymTask", "TaskManager"]
+__all__ = ["rl_tasks"]

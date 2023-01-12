@@ -1,7 +1,7 @@
 import gym
 import pytest
 
-from algorithm_distillation import GymTask
+from algorithm_distillation.rl_tasks import GymTask
 
 
 @pytest.mark.parametrize("policy", ['DQN', 'PPO', 'A2C'])

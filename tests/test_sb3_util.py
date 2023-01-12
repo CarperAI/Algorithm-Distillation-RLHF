@@ -3,8 +3,7 @@ import numpy as np
 import stable_baselines3
 from stable_baselines3.common.buffers import ReplayBuffer
 
-from algorithm_distillation import GymTask
-from algorithm_distillation.sb3_util.callback import RolloutCallback
+from algorithm_distillation.models.sb3_util.callback import RolloutCallback
 
 
 def test_callback():
