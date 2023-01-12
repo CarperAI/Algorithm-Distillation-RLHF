@@ -1,7 +1,8 @@
 import gym
 import pytest
 
-from algorithm_distillation.rl_tasks import GymTask, TaskManager, GymAD
+from algorithm_distillation import GymAD
+from algorithm_distillation.tasks.rl import GymTask, TaskManager
 from algorithm_distillation.models import GPT2AD
 from algorithm_distillation.models.sb3_util import CustomLogger, configure
 

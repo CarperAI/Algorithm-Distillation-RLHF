@@ -7,9 +7,8 @@ from tqdm import tqdm
 
 from algorithm_distillation.models.ad_transformer import ADTransformer
 from algorithm_distillation.models.util import get_sequence
-
-from .task import GymTask
-from .task_manager import TaskManager
+from algorithm_distillation.tasks.rl.task import GymTask
+from algorithm_distillation.tasks.rl.task_manager import TaskManager
 
 
 class AlgorithmDistillation(abc.ABC):
