@@ -35,7 +35,7 @@ class GPT2AD(ADTransformer):
         obs_dim,
         act_dim,
         hidden_size,
-        max_ep_len=4096,
+        max_step_len=1024,
         action_tanh=True,
         obs_emb_cls=torch.nn.Linear,
         act_emb_cls=torch.nn.Linear,
@@ -48,7 +48,7 @@ class GPT2AD(ADTransformer):
         :param obs_dim: observation dimension (as a flattened tensor)
         :param act_dim: action dimension (as a flattened tensor)
         :param hidden_size: the dimension of the embedding space
-        :param max_ep_len: (Optional) maximal episode length
+        :param max_step_len: (Optional) maximal episode length
         :param action_tanh: (Optional) apply tanh activation function on the action
         :param obs_emb_cls: (Optional) the nn.Module class for observation embedding
         :param act_emb_cls: (Optional) the nn.Module class for action embedding
@@ -61,13 +61,16 @@ class GPT2AD(ADTransformer):
         self.act_dim = act_dim
         self.hidden_size = hidden_size
         self.action_tanh = action_tanh
+        self.max_step_len = max_step_len
         # Generate the most basic GPT2 config
-        config = transformers.GPT2Config(vocab_size=1, n_embd=hidden_size, **kwargs)
+        config = transformers.GPT2Config(
+            vocab_size=1, n_embd=hidden_size, n_positions=max_step_len * 3, **kwargs
+        )
         self.transformers = transformers.GPT2Model(config)
         # Remove the position embedding by replacing it with a dummy.
         self.transformers.wpe = ZeroDummy((hidden_size,))
         # This is our position embedding based on steps.
-        self.step_embedding = torch.nn.Embedding(max_ep_len, self.hidden_size)
+        self.step_embedding = torch.nn.Embedding(max_step_len, self.hidden_size)
 
         # The embedding layers
         self.obs_embedding = obs_emb_cls(self.obs_dim, self.hidden_size)
@@ -110,9 +113,9 @@ class GPT2AD(ADTransformer):
         But other cases are allowed, e.g.,
         `..., latest_obs, latest_act, None` -> `next_reward`
 
-        :param obs: (b, t, obs_dim)
-        :param actions: (b, t, act_dim)
-        :param rewards: (b, t, 1)
+        :param obs: (b, t, obs_dim) or None if b==0
+        :param actions: (b, t, act_dim) or None if b==0
+        :param rewards: (b, t, 1) or None if b==0
         :param current_obs: (Optional) (b, obs_dim)
         :param current_action: (Optional) shape (b, act_dim)
         :param current_reward: (Optional) shape (b, 1)
@@ -122,32 +125,45 @@ class GPT2AD(ADTransformer):
         :param action_only: (Optional) return predicted actions only.
         :return: predicted action logits (if action_only) or predicted action logits, rewards, and obs.
         """
-        device = obs.device
+        if (
+            obs is None or obs.numel() == 0
+        ):  # None or empty tensor are regarded as no history
+            assert current_obs is not None, "Empty input."
+            device = (
+                torch.device("cuda")
+                if torch.cuda.is_available()
+                else torch.device("cpu")
+            )
+            batch_size, history_length = current_obs.shape[0], 0
+        else:
+            device = obs.device
+            batch_size, history_length, _ = obs.shape
 
-        batch_size, timestep, _ = obs.shape
         if current_step_id is None:
             if step_ids is not None:
                 logger.warning(
-                    "'current_step_id' defaults to the number of steps. But it may conflict with the given 'step_ids'."
+                    "'current_step_id' will default to the number of history steps. "
+                    "But it may conflict with the given 'step_ids'."
                 )
-            current_step_id = timestep
+            current_step_id = history_length
 
-        if attention_mask is None:
-            attention_mask = torch.ones(
-                (batch_size, timestep), dtype=torch.float, device=device
+        if step_ids is None and history_length > 0:
+            step_ids = (
+                torch.arange(0, history_length, dtype=torch.long, device=device)
+                .view(1, history_length)
+                .repeat((batch_size, 1))
             )
 
-        if step_ids is None:
-            step_ids = torch.arange(0, timestep, dtype=torch.long, device=device).view(
-                1, timestep
+        if history_length == 0:
+            embedded_obs, embedded_act, embedded_rew = None, None, None
+        else:
+            embedded_steps = self.step_embedding(step_ids).view(
+                batch_size, history_length, self.hidden_size
             )
-        embedded_steps = self.step_embedding(step_ids).view(
-            1, timestep, self.hidden_size
-        )
+            embedded_obs = self.obs_embedding(obs) + embedded_steps
+            embedded_act = self.act_embedding(actions) + embedded_steps
+            embedded_rew = self.rew_embedding(rewards) + embedded_steps
 
-        embedded_obs = self.obs_embedding(obs) + embedded_steps
-        embedded_act = self.act_embedding(actions) + embedded_steps
-        embedded_rew = self.rew_embedding(rewards) + embedded_steps
         embedded_latest_step = self.step_embedding(
             torch.tensor([current_step_id], dtype=torch.long, device=device)
         )
@@ -168,16 +184,28 @@ class GPT2AD(ADTransformer):
         # Note: only affects axis 1. Axis 0 (batch) and axis 2 (embedding) are preserved.
         input_seq = stack_seq(embedded_obs, embedded_act, embedded_rew, extra)
         input_seq = self.layer_norm_in_embedding(input_seq)
-        attention_mask = (
-            attention_mask.unsqueeze(-1).repeat((1, 1, 3)).view(batch_size, -1)
-        )
-        attention_mask = torch.concat(
-            [
-                attention_mask,
-                torch.ones((batch_size, num_extra), dtype=torch.float, device=device),
-            ],
-            dim=1,
-        )
+
+        if history_length == 0:  # Empty history -> no need to concatenate with history.
+            attention_mask = torch.ones(
+                (batch_size, num_extra), dtype=torch.float, device=device
+            )
+        else:  # Nonempty history -> concatenate history sequence with current state info.
+            if attention_mask is None:
+                attention_mask = torch.ones(
+                    (batch_size, history_length), dtype=torch.float, device=device
+                )
+            attention_mask = (
+                attention_mask.unsqueeze(-1).repeat((1, 1, 3)).view(batch_size, -1)
+            )
+            attention_mask = torch.concat(
+                [
+                    attention_mask,
+                    torch.ones(
+                        (batch_size, num_extra), dtype=torch.float, device=device
+                    ),
+                ],
+                dim=1,
+            )
 
         # Do inference using the underlying transformer.
         output = self.transformers(

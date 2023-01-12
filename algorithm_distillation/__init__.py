@@ -1,5 +1,4 @@
-from .ad import AlgorithmDistillation, GymAD
-from .task import GymTask, Task
-from .task_manager import TaskManager
+from algorithm_distillation import models, tasks
+from algorithm_distillation.ad import AlgorithmDistillation, GymAD
 
-__all__ = ["AlgorithmDistillation", "GymAD", "Task", "GymTask", "TaskManager"]
+__all__ = ["models", "tasks", "AlgorithmDistillation", "GymAD"]
