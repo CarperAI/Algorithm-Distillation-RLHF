@@ -1,1 +1,1 @@
-from .dataset import SentimentTrajectories
+from .dataset import SentimentLanguageTrajectories

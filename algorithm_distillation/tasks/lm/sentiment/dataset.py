@@ -2,27 +2,27 @@ import torch
 from pathlib import Path
 import json
 from transformers import AutoTokenizer
-from typing import Dict, Any, Union
+from typing import Dict, Any
+from pathlib import Path
 
-Dataset = Union[torch.utils.data.Dataset, torch.utils.data.IterableDataset]
+class SentimentRlTrajectories(torch.utils.data.Dataset):
+    def __init__(self):
+        raise NotImplementedError()
+    
 
-class SentimentTrajectories(Dataset):
-    def __init__(self, format:str, *args, **kwargs):
-        if format == "language":
-            self = SentimentAsLanguageTrajectories(*args, **kwargs)
-        elif format == "rl":
-            raise NotImplementedError()
-            # self = SentimentAsRlTrajectories(*stargs, **kwargs)
-        else:
-            raise RuntimeError(f"format must be either 'language' or 'rl', got: {format}")
-
-
-class SentimentAsLanguageTrajectories(torch.utils.data.IterableDataset):
-    def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str, for_generation: bool = False, verbose: bool = True):
+class SentimentLanguageTrajectories(torch.utils.data.IterableDataset):
+    def __init__(self, tokenizer: AutoTokenizer, split: str, for_generation: bool = False, verbose: bool = True):
         self.tokenizer = tokenizer 
-        self.rollouts_folder = Path(rollouts_folder_fpath)
         self.verbose = verbose
         self.for_generation = for_generation
+        
+        if split == 'train':
+            self.rollouts_folder = Path(__file__).parent / "decoded_rollouts" / "train"
+        elif split == 'eval':
+            self.rollouts_folder = Path(__file__).parent / "decoded_rollouts" / "eval"
+        else:
+            raise RuntimeError(f"split must be either 'train' or 'eval', got: {split}")
+        
         
     def format_rollout(self, d: Dict[Any, Any]) -> str:
         return f"Prompt: {d['query_text']}\nCompletion: {d['response_text']}\nReward: {d['rewards'][-1]}\n\n"
@@ -84,7 +84,7 @@ class SentimentAsLanguageTrajectories(torch.utils.data.IterableDataset):
     
 if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    dataset = SentimentTrajectories("language", tokenizer, './decoded_rollouts', for_generation=False)
+    dataset = SentimentLanguageTrajectories(tokenizer, split='train', for_generation=False)
     for ex in dataset:
         print(tokenizer.decode(ex['input_ids'][0]))
         print('\n---------\n')

@@ -1,7 +1,9 @@
 
-from .tasks.lm.sentiment import SentimentTrajectories
-from .tasks.utils import ShuffledIterableDataset
+from tasks.lm.sentiment import SentimentLanguageTrajectories
+from tasks.utils import ShuffledIterableDataset
 
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from accelerate import Accelerator
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 from tqdm.auto import tqdm
@@ -15,7 +17,7 @@ logging_table = wandb.Table(columns=['step', 'generation'])
 
 # Data
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
-train_dataset = SentimentTrajectories(format="language", tokenizer=tokenizer)
+train_dataset = SentimentLanguageTrajectories(split="train", tokenizer=tokenizer)
 train_dataset = ShuffledIterableDataset(train_dataset, buffer_size=10_000)
 # eval_dataset = ...
 # generate_dataset = ...

@@ -45,12 +45,13 @@ I am using my own fork of TRLx that has rollout logging.
 
 Today:
 [X] Set up repo structure (just for your language stuff, @H can add in his)
-[ ] Add train script for models/lm/casuallm (25 mins)
+[X] Add train script for models/lm/casuallm 
 [ ] Clone H's stuff and merge with @H stuff (/models/rl) and (/tasks/rl) (25 mins)
 [ ] Proper PR for TRLx (25 mins)
 [ ] Post guide and project tasks on discord  
 
 Future:
+[ ] Add more elegant meta class switching between ...LanguageTrajectories and ...RlTrajectories
 [ ] Add online evaluation script for models/lm/casuallm
 [ ] Improve train script to include reward accuracy
 [ ] Run some preliminary experiments  
