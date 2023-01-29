@@ -38,8 +38,20 @@ Trajectories in *Language format* are learn by models in `/models/lm`.
 
 `/tasks` contains code to produce the RL trajectories that the models learn. It can store this data however it likes, but each task should expose a `torch.utils.data.Dataset` that can return trajectory data in either *RL Format* or *Language format*. 
 
+## Generating trajectory data
+I am using my own fork of TRLx that has rollout logging.
+
 ## ToDo:
 
-[ ] Set up repo structure (just for your language stuff, @H can add in his)  
+Today:
+[X] Set up repo structure (just for your language stuff, @H can add in his)
+[ ] Add train script for models/lm/casuallm (25 mins)
+[ ] Clone H's stuff and merge with @H stuff (/models/rl) and (/tasks/rl) (25 mins)
+[ ] Proper PR for TRLx (25 mins)
 [ ] Post guide and project tasks on discord  
+
+Future:
+[ ] Add online evaluation script for models/lm/casuallm
+[ ] Improve train script to include reward accuracy
 [ ] Run some preliminary experiments  
+[ ] Add __main__ file with click CLI interface for running experiments
