@@ -84,3 +84,10 @@ virtualenv==20.16.7
 wandb==0.13.5
 xxhash==3.1.0
 yarl==1.8.1
+=======
+stable-baselines3
+transformers~=4.24.0
+torch~=1.12.1
+pytest~=7.2.0
+gym~=0.21.0
+numpy~=1.23.5
