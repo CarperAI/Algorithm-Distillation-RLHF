@@ -1,3 +1,11 @@
+trlx
+algorithm_distillation/tasks/lm/sentiment/ray_results/
+algorithm_distillation/tasks/lm/sentiment/rollouts/run-*
+algorithm_distillation/tasks/lm/sentiment/decoded_rollouts
+algorithm_distillation/tasks/lm/sentiment/wandb/
+wandb/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
