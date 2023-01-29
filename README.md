@@ -30,7 +30,7 @@ reward: 0.9975
 
 It's less obvious how to do this when the task is not a language task, such as moonlander. Enumerating the states as coordinates might work, but requires experimentation. 
 
-Trajectories in *Language format* are learn by models in `/models/lm`.
+Trajectories in *Language format* are learnt by models in `/models/lm`.
 
 ## To summarise:
 
