@@ -2,9 +2,22 @@ import torch
 from pathlib import Path
 import json
 from transformers import AutoTokenizer
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
-class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
+Dataset = Union[torch.utils.data.Dataset, torch.utils.data.IterableDataset]
+
+class SentimentTrajectories(Dataset):
+    def __init__(self, format:str, *args, **kwargs):
+        if format == "language":
+            self = SentimentAsLanguageTrajectories(*args, **kwargs)
+        elif format == "rl":
+            raise NotImplementedError()
+            # self = SentimentAsRlTrajectories(*stargs, **kwargs)
+        else:
+            raise RuntimeError(f"format must be either 'language' or 'rl', got: {format}")
+
+
+class SentimentAsLanguageTrajectories(torch.utils.data.IterableDataset):
     def __init__(self, tokenizer: AutoTokenizer, rollouts_folder_fpath: str, for_generation: bool = False, verbose: bool = True):
         self.tokenizer = tokenizer 
         self.rollouts_folder = Path(rollouts_folder_fpath)
@@ -71,7 +84,7 @@ class RolloutsAsLanguageModellingTask(torch.utils.data.IterableDataset):
     
 if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    dataset = RolloutsAsLanguageModellingTask(tokenizer, './decoded_rollouts', for_generation=True)
+    dataset = SentimentTrajectories("language", tokenizer, './decoded_rollouts', for_generation=False)
     for ex in dataset:
         print(tokenizer.decode(ex['input_ids'][0]))
         print('\n---------\n')

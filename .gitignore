@@ -1,8 +1,8 @@
 trlx
-algorithm_distillation/sentiment-data/ray_results/
-algorithm_distillation/sentiment-data/rollouts/run-*
-algorithm_distillation/sentiment-data/decoded_rollouts
-algorithm_distillation/sentiment-data/wandb/
+algorithm_distillation/tasks/lm/sentiment/ray_results/
+algorithm_distillation/tasks/lm/sentiment/rollouts/run-*
+algorithm_distillation/tasks/lm/sentiment/decoded_rollouts
+algorithm_distillation/tasks/lm/sentiment/wandb/
 wandb/
 
 
